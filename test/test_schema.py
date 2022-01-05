@@ -387,5 +387,34 @@ int32.store.σ4@4 ⊑ float32.σ4@4.load, int32.store.σ4@4 ⊑ int32.σ4@4.load
 ]'''
         self.assertEqual(''.join(expected.split('\n')), str(sorted(solver.constraints)))
 
+    def test_int32_float32_stack_access_reversed_store_and_load(self):
+        '''
+        Mem[fp - 4:word32] = Mem[fp + 4:word32]
+        fn1(Mem[fp - 4:int32])
+        Mem[fp - 4:word32] = Mem[fp + 8:word32]
+        fn2(Mem[fp - 4:real32])
+        '''
+        constraints = ConstraintSet()
+        constraints.add(SchemaParser.parse_constraint("F.in_0 ⊑ arg0"))
+        constraints.add(SchemaParser.parse_constraint("F.in_1 ⊑ arg1"))
+        constraints.add(SchemaParser.parse_constraint("arg0 ⊑ local.σ4@4.store"))
+        constraints.add(SchemaParser.parse_constraint("local.σ4@4.load ⊑ fn1.in_0"))
+        constraints.add(SchemaParser.parse_constraint("fn1.in_0 ⊑ int32"))
+        constraints.add(SchemaParser.parse_constraint("arg1 ⊑ local.σ4@4.store"))
+        constraints.add(SchemaParser.parse_constraint("local.σ4@4.load ⊑ fn2.in_0"))
+        constraints.add(SchemaParser.parse_constraint("fn2.in_0 ⊑ float32"))
+
+        solver = Solver(constraints, {'F', 'int32', 'float32'})
+        solver()
+
+        expected = '''[
+F.in_0 ⊑ float32, F.in_0 ⊑ int32, F.in_1 ⊑ float32, F.in_1 ⊑ int32, 
+float32.σ4@4.store ⊑ float32.load.σ4@4, float32.σ4@4.store ⊑ int32.load.σ4@4, 
+float32.store ⊑ float32.load, float32.store ⊑ int32.load, 
+int32.σ4@4.store ⊑ float32.load.σ4@4, int32.σ4@4.store ⊑ int32.load.σ4@4, 
+int32.store ⊑ float32.load, int32.store ⊑ int32.load
+]'''
+        self.assertEqual(''.join(expected.split('\n')), str(sorted(solver.constraints)))
+
 if __name__ == '__main__':
     unittest.main()

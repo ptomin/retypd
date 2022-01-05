@@ -57,7 +57,7 @@ class SchemaParser:
         deref_match = SchemaParser.deref_pattern.match(label)
         if deref_match:
             return DerefLabel(int(deref_match.group(1)), int(deref_match.group(2)))
-        raise ValueError
+        raise ValueError(label)
 
     @staticmethod
     def parse_variable(var: str) -> DerivedTypeVariable:
