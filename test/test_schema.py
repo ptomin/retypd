@@ -416,5 +416,33 @@ int32.store ⊑ float32.load, int32.store ⊑ int32.load
 ]'''
         self.assertEqual(''.join(expected.split('\n')), str(sorted(solver.constraints)))
 
+    def test_local_stack_ptr_int32(self):
+        '''
+        Mem[fp - 8<i32>:word32] = 3<32>
+        Mem[fp - 4<i32>:word32] = 4<32>
+        call func(fp - 8<i32>)
+    where function prototype is func(int *)
+        '''
+        constraints = ConstraintSet()
+         # word32 is subclass of int32 at Reko type system
+        constraints.add(SchemaParser.parse_constraint("word32 ⊑ int32"))
+        constraints.add(SchemaParser.parse_constraint("word32 ⊑ local.store.σ4@92"))
+        constraints.add(SchemaParser.parse_constraint("word32 ⊑ local.store.σ4@96"))
+        constraints.add(SchemaParser.parse_constraint("local.load.σ4@92 ⊑ func.in_0.load"))
+        constraints.add(SchemaParser.parse_constraint("func.in_0.load ⊑ int32"))
+        constraints.add(SchemaParser.parse_constraint("func.in_0.store ⊑ int32"))
+
+        solver = Solver(constraints, {'local', 'word32', 'int32'})
+        solver()
+
+        expected = '''[
+int32.in_0.load ⊑ int32.store.in_0, int32.in_0.load ⊑ word32.load.in_0, 
+int32.store ⊑ int32.load, local.load.σ4@92 ⊑ int32, local.store.σ4@92 ⊑ int32, 
+word32 ⊑ int32, word32 ⊑ local.σ4@92.load, word32 ⊑ local.σ4@92.store, 
+word32 ⊑ local.σ4@96.load, word32 ⊑ local.σ4@96.store, 
+word32.σ4@92 ⊑ int32.σ4@92, word32.σ4@92 ⊑ int32.σ4@96, word32.load ⊑ int32.load
+]'''
+        self.assertEqual(''.join(expected.split('\n')), str(sorted(solver.constraints)))
+
 if __name__ == '__main__':
     unittest.main()
