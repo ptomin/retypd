@@ -187,7 +187,8 @@ class BasicSchemaTest(SchemaTest, unittest.TestCase):
         solver._unforgettable_subgraph_split()
         solver._generate_constraints()
 
-        self.assertTrue(SchemaParser.parse_constraint('A ⊑ B') in solver.constraints)
+        expected = '[A ⊑ B, A.load ⊑ A.store, A.load ⊑ B.load, B.store ⊑ A.store]'
+        self.assertEqual(expected, str(sorted(solver.constraints)))
 
 
 class RecursiveSchemaTest(SchemaTest, unittest.TestCase):
@@ -358,6 +359,33 @@ class RecursiveSchemaTest(SchemaTest, unittest.TestCase):
         self.assertTrue(SchemaParser.parse_constraint(f'F.in_0 ⊑ {tv}') in solver.constraints)
         self.assertTrue(SchemaParser.parse_constraint(f'{tv}.load.σ4@0 ⊑ {tv}') in solver.constraints)
         self.assertTrue(SchemaParser.parse_constraint(f'{tv}.load.σ4@4 ⊑ #FileDescriptor') in solver.constraints)
+
+    def test_int32_float32_stack_access(self):
+        '''
+        Mem[fp - 4:word32] = Mem[fp + 4:word32]
+        fn1(Mem[fp - 4:int32])
+        Mem[fp - 4:word32] = Mem[fp + 8:word32]
+        fn2(Mem[fp - 4:real32])
+        '''
+        constraints = ConstraintSet()
+        constraints.add(SchemaParser.parse_constraint("F.in_0 ⊑ arg0"))
+        constraints.add(SchemaParser.parse_constraint("F.in_1 ⊑ arg1"))
+        constraints.add(SchemaParser.parse_constraint("arg0 ⊑ local.store.σ4@4"))
+        constraints.add(SchemaParser.parse_constraint("local.load.σ4@4' ⊑ fn1.in_0"))
+        constraints.add(SchemaParser.parse_constraint("fn1.in_0 ⊑ int32"))
+        constraints.add(SchemaParser.parse_constraint("arg1 ⊑ local.store.σ4@4"))
+        constraints.add(SchemaParser.parse_constraint("local.load.σ4@4' ⊑ fn2.in_0"))
+        constraints.add(SchemaParser.parse_constraint("fn2.in_0 ⊑ float32"))
+
+        solver = Solver(constraints, {'F', 'int32', 'float32'})
+        solver()
+
+        expected = '''[
+F.in_0 ⊑ float32, F.in_0 ⊑ int32, F.in_1 ⊑ float32, F.in_1 ⊑ int32, 
+float32.store.σ4@4 ⊑ float32.σ4@4.load, float32.store.σ4@4 ⊑ int32.σ4@4.load, 
+int32.store.σ4@4 ⊑ float32.σ4@4.load, int32.store.σ4@4 ⊑ int32.σ4@4.load
+]'''
+        self.assertEqual(''.join(expected.split('\n')), str(sorted(solver.constraints)))
 
 if __name__ == '__main__':
     unittest.main()

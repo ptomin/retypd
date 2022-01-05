@@ -313,6 +313,9 @@ class SubtypeConstraint:
     def __str__(self) -> str:
         return f'{self.left} ⊑ {self.right}'
 
+    def __repr__(self) -> str:
+        return str(self)
+
 
 class ConstraintSet:
     '''A (partitioned) set of type constraints
